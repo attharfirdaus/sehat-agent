@@ -121,9 +121,9 @@ function ClinicianContent() {
   if (!queue) return <p className="p-4 text-sm text-muted-foreground">Memuat…</p>;
   const item = queue.find((q) => q.review_id === selected);
   return (
-    <main className="grid flex-1 gap-4 overflow-y-auto px-4 py-6 md:grid-cols-[16rem_1fr]">
+    <main className="grid flex-1 content-start gap-6 overflow-y-auto px-4 py-6 md:px-8 lg:grid-cols-[18rem_1fr]">
       <nav aria-label="Antrian review">
-        <h1 className="mb-2 text-base font-semibold">Antrian review ({queue.length})</h1>
+        <h2 className="mb-2 text-base font-semibold">Antrian review ({queue.length})</h2>
         {queue.length === 0 && <p className="text-sm text-muted-foreground">Tidak ada kasus yang menunggu.</p>}
         <ul className="flex flex-col gap-1">
           {queue.map((q) => (
@@ -148,7 +148,7 @@ function ClinicianContent() {
 
 export default function ClinicianPage() {
   return (
-    <AppShell wide roles={["clinician", "admin"]}>
+    <AppShell roles={["clinician", "admin"]} title="Clinician" subtitle="Tinjau rencana untuk kasus berisiko tinggi">
       {() => <ClinicianContent />}
     </AppShell>
   );
