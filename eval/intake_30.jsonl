@@ -1,0 +1,30 @@
+{"text": "hari ini jalan 6rb langkah, tidur 5 jam, minum 2 liter air, ga ngerokok, ga minum alkohol", "label": {"steps": 6000, "sleep_hours": 5, "water_l": 2, "smoked": false, "alcohol": false}}
+{"text": "Saya berjalan 8.500 langkah dan tidur 7 jam semalam.", "label": {"steps": 8500, "sleep_hours": 7, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "tidur cuma 4 jam, minum air 1,5 liter", "label": {"steps": null, "sleep_hours": 4, "water_l": 1.5, "smoked": null, "alcohol": null}}
+{"text": "walked 10k steps today, slept 6 hours", "label": {"steps": 10000, "sleep_hours": 6, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "hari ini merokok 3 batang, tidak minum alkohol", "label": {"steps": null, "sleep_hours": null, "water_l": null, "smoked": true, "alcohol": false}}
+{"text": "langkah 12000, tidur 8 jam, air 3 liter, no smoking, no alcohol", "label": {"steps": 12000, "sleep_hours": 8, "water_l": 3, "smoked": false, "alcohol": false}}
+{"text": "td malem begadang, tidur 3 jam doang", "label": {"steps": null, "sleep_hours": 3, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "minum 8 gelas air hari ini", "label": {"steps": null, "sleep_hours": null, "water_l": 2, "smoked": null, "alcohol": null}}
+{"text": "jalan kaki 4 ribu langkah aja, abis itu rebahan", "label": {"steps": 4000, "sleep_hours": null, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "kemarin malam minum bir 2 kaleng, tidur 6 jam", "label": {"steps": null, "sleep_hours": 6, "water_l": null, "smoked": null, "alcohol": true}}
+{"text": "Tidur saya 7,5 jam dan saya tidak merokok sama sekali.", "label": {"steps": null, "sleep_hours": 7.5, "water_l": null, "smoked": false, "alcohol": null}}
+{"text": "steps 5300, sleep 6.5h, water 1L", "label": {"steps": 5300, "sleep_hours": 6.5, "water_l": 1, "smoked": null, "alcohol": null}}
+{"text": "ngerokok sebungkus hari ini, jalan 2rb langkah", "label": {"steps": 2000, "sleep_hours": null, "water_l": null, "smoked": true, "alcohol": null}}
+{"text": "air putih 2,5 liter, tidur 9 jam, gak minum alkohol", "label": {"steps": null, "sleep_hours": 9, "water_l": 2.5, "smoked": null, "alcohol": false}}
+{"text": "hari ini olahraga lari, total langkah 15.000", "label": {"steps": 15000, "sleep_hours": null, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "tidur jam 1 bangun jam 6, jadi 5 jam", "label": {"steps": null, "sleep_hours": 5, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "I didn't smoke today and drank no alcohol, about 2 liters of water", "label": {"steps": null, "sleep_hours": null, "water_l": 2, "smoked": false, "alcohol": false}}
+{"text": "langkah 7rb, tdr 6 jam, minum 1.5L, ga rokok, ga alkohol", "label": {"steps": 7000, "sleep_hours": 6, "water_l": 1.5, "smoked": false, "alcohol": false}}
+{"text": "Hari ini saya tidak merokok, tetapi minum anggur satu gelas.", "label": {"steps": null, "sleep_hours": null, "water_l": null, "smoked": false, "alcohol": true}}
+{"text": "jalan 9 ribu langkah keliling mall", "label": {"steps": 9000, "sleep_hours": null, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "tidur siang 1 jam, malamnya 6 jam, total 7 jam", "label": {"steps": null, "sleep_hours": 7, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "air cuma 4 gelas, 3000 langkah", "label": {"steps": 3000, "sleep_hours": null, "water_l": 1, "smoked": null, "alcohol": null}}
+{"text": "slept 8 hours, walked 6500 steps, had 2 cigarettes", "label": {"steps": 6500, "sleep_hours": 8, "water_l": null, "smoked": true, "alcohol": null}}
+{"text": "Langkah hari ini 11.200, tidur 6 jam 30 menit.", "label": {"steps": 11200, "sleep_hours": 6.5, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "ga minum alkohol, ga ngerokok, tidur 7 jam, jalan 5rb", "label": {"steps": 5000, "sleep_hours": 7, "water_l": null, "smoked": false, "alcohol": false}}
+{"text": "minum air 3L karena panas banget, jalan 8rb langkah", "label": {"steps": 8000, "sleep_hours": null, "water_l": 3, "smoked": null, "alcohol": null}}
+{"text": "tidur 5,5 jam, merokok 5 batang", "label": {"steps": null, "sleep_hours": 5.5, "water_l": null, "smoked": true, "alcohol": null}}
+{"text": "hari ini nggak kemana-mana, cuma 1500 langkah, tidur 10 jam", "label": {"steps": 1500, "sleep_hours": 10, "water_l": null, "smoked": null, "alcohol": null}}
+{"text": "Saya minum 2 liter air dan tidak minum minuman beralkohol.", "label": {"steps": null, "sleep_hours": null, "water_l": 2, "smoked": null, "alcohol": false}}
+{"text": "6k steps, 7h sleep, 2L water, no smoke, no booze", "label": {"steps": 6000, "sleep_hours": 7, "water_l": 2, "smoked": false, "alcohol": false}}

@@ -1,0 +1,81 @@
+# Korpus RAG (PRD bagian 12). File mentah diunduh manual ke data/corpus/<source_id>.<pdf|html>;
+# script ingestion tidak melakukan scraping. `pages` = rentang halaman PDF yang di-ingest (inklusif).
+# PNPK: hanya definisi, klasifikasi, diagnosis/skrining, dan modifikasi gaya hidup; bagian
+# farmakoterapi tidak di-ingest supaya tidak pernah muncul di rekomendasi.
+documents:
+  - source_id: WHO-PA-2020
+    title: WHO guidelines on physical activity and sedentary behaviour
+    url: https://www.who.int/publications/i/item/9789240015128
+    publisher: WHO
+    year: 2020
+    lang: en
+  - source_id: WHO-FS-PA
+    title: "Fact sheet: Physical activity"
+    url: https://www.who.int/news-room/fact-sheets/detail/physical-activity
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-DIET
+    title: "Fact sheet: Healthy diet"
+    url: https://www.who.int/news-room/fact-sheets/detail/healthy-diet
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-OBES
+    title: "Fact sheet: Obesity and overweight"
+    url: https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-DM
+    title: "Fact sheet: Diabetes"
+    url: https://www.who.int/news-room/fact-sheets/detail/diabetes
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-CVD
+    title: "Fact sheet: Cardiovascular diseases"
+    url: https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-TOB
+    title: "Fact sheet: Tobacco"
+    url: https://www.who.int/news-room/fact-sheets/detail/tobacco
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: WHO-FS-NCD
+    title: "Fact sheet: Noncommunicable diseases"
+    url: https://www.who.int/news-room/fact-sheets/detail/noncommunicable-diseases
+    publisher: WHO
+    year: null
+    lang: en
+  - source_id: KEMENKES-PGS-2014
+    title: Permenkes No. 41 Tahun 2014 tentang Pedoman Gizi Seimbang
+    url: https://peraturan.bpk.go.id/Download/109856/Permenkes%20Nomor%2041%20Tahun%202014.pdf
+    publisher: Kementerian Kesehatan RI
+    year: 2014
+    lang: id
+  - source_id: KEMENKES-PNPK-HT-2026
+    title: PNPK Tata Laksana Hipertensi Dewasa (KMK HK.01.07/MENKES/303/2026)
+    url: https://keslan.kemkes.go.id/unduhan/fileunduhan1780387327_362636.pdf
+    publisher: Kementerian Kesehatan RI
+    year: 2026
+    lang: id
+    pages: [9, 28]  # BAB III A-D.3; mulai hlm 29: target TD, inisiasi dan pilihan obat
+  - source_id: KEMENKES-PNPK-DM2-2026
+    title: PNPK Tatalaksana Diabetes Melitus Tipe 2 Dewasa (KMK HK.01.07/MENKES/302/2026)
+    url: https://keslan.kemkes.go.id/unduhan/fileunduhan1777518085_672976.pdf
+    publisher: Kementerian Kesehatan RI
+    year: 2026
+    lang: id
+    pages: [9, 31]  # definisi s.d. latihan fisik; hlm 32 mulai intervensi farmakologis
+  - source_id: KEMENKES-PTM-2015
+    title: Permenkes No. 71 Tahun 2015 tentang Penanggulangan Penyakit Tidak Menular
+    url: https://peraturan.go.id/files/bn1775-2015.pdf
+    publisher: Kementerian Kesehatan RI
+    year: 2015
+    lang: id
+# Tidak tersedia: KEMENKES-PTM-MGMT-2019 (URL Puskesmas mengembalikan respons kosong saat
+# diunduh 2026-11-21). Tambahkan entri di atas setelah file didapat.

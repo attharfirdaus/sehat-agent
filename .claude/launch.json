@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["dev"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["web"],
+      "port": 3000
+    }
+  ]
+}

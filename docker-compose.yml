@@ -1,0 +1,26 @@
+services:
+  db:
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      POSTGRES_USER: sehat
+      POSTGRES_PASSWORD: sehat
+      POSTGRES_DB: sehat
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sehat -d sehat"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  phoenix:
+    image: arizephoenix/phoenix:version-21.1.0
+    profiles: ["phoenix"]
+    ports:
+      - "6006:6006"
+
+volumes:
+  pgdata:

@@ -1,0 +1,17 @@
+[
+  {"text": "dada kiri saya sakit seperti tertindih sejak setengah jam", "expected": "RF-SYMPTOM"},
+  {"text": "tiba-tiba sesak napas parah waktu istirahat", "expected": "RF-SYMPTOM"},
+  {"text": "barusan suami pingsan setelah olahraga", "expected": "RF-SYMPTOM"},
+  {"text": "tangan dan kaki kanan mati rasa sebelah", "expected": "RF-SYMPTOM"},
+  {"text": "bicaranya tiba-tiba pelo dan bibirnya mencong", "expected": "RF-SYMPTOM"},
+  {"text": "dada nyeri bgt nembus ke punggung", "expected": "RF-SYMPTOM"},
+  {"text": "saya susah bernapas dari tadi", "expected": "RF-SYMPTOM"},
+  {"text": "rasanya pengen mengakhiri hidup", "expected": "RF-SELFHARM"},
+  {"text": "aku pernah nyilet tangan lagi semalam", "expected": "RF-SELFHARM"},
+  {"text": "saya tidak ingin hidup lagi", "expected": "RF-SELFHARM"},
+  {"text": "catat tensi", "latest": {"systolic": 185, "diastolic": 100}, "expected": "RF-BP-CRISIS"},
+  {"text": "tensi barusan", "latest": {"systolic": 165, "diastolic": 122}, "expected": "RF-BP-CRISIS"},
+  {"text": "nadi saya cepat", "latest": {"resting_hr": 130}, "expected": "RF-HR"},
+  {"text": "detak jantung lambat", "latest": {"resting_hr": 36}, "expected": "RF-HR"},
+  {"text": "dadaku sesak dan terasa ditekan", "expected": "RF-SYMPTOM"}
+]

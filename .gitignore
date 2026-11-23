@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+backend/models/*
+!backend/models/*.json
+!backend/models/.gitkeep
+data/uploads/
+node_modules/
+.next/
+.DS_Store
+backend/ml/data/

@@ -1,0 +1,40 @@
+{"text": "jalan 7rb langkah, tidur 6 jam", "intent": "log"}
+{"text": "hari ini minum air 2 liter", "intent": "log"}
+{"text": "tensi saya tadi pagi 128/82", "intent": "log"}
+{"text": "berat badan 68 kg", "intent": "log"}
+{"text": "tidur cuma 4 jam semalam", "intent": "log"}
+{"text": "I walked 9000 steps today", "intent": "log"}
+{"text": "hari ini ngerokok 2 batang", "intent": "log"}
+{"text": "catat: langkah 5000, air 1,5 liter, tidak merokok", "intent": "log"}
+{"text": "barusan lari 5 km", "intent": "log"}
+{"text": "nadi istirahat 72", "intent": "log"}
+{"text": "kenapa tidur saya memburuk minggu ini?", "intent": "history_question"}
+{"text": "berapa rata-rata langkah saya 7 hari terakhir?", "intent": "history_question"}
+{"text": "apakah saya sudah mencapai target rencana minggu ini?", "intent": "history_question"}
+{"text": "tren tekanan darah saya naik atau turun?", "intent": "history_question"}
+{"text": "how much water did I drink this week?", "intent": "history_question"}
+{"text": "hari apa saya tidur paling sedikit?", "intent": "history_question"}
+{"text": "bandingkan langkah saya minggu ini dengan minggu lalu", "intent": "history_question"}
+{"text": "berapa kali saya merokok bulan ini?", "intent": "history_question"}
+{"text": "apa isi rencana saya sekarang?", "intent": "history_question"}
+{"text": "berat badan saya turun berapa sejak awal bulan?", "intent": "history_question"}
+{"text": "berapa menit olahraga yang disarankan untuk orang dewasa?", "intent": "health_info"}
+{"text": "apa itu hipertensi?", "intent": "health_info"}
+{"text": "berapa batas konsumsi garam per hari?", "intent": "health_info"}
+{"text": "apa bahaya merokok bagi jantung?", "intent": "health_info"}
+{"text": "what are the symptoms of diabetes?", "intent": "health_info"}
+{"text": "makanan apa yang baik untuk menurunkan kolesterol?", "intent": "health_info"}
+{"text": "apa definisi obesitas menurut WHO?", "intent": "health_info"}
+{"text": "kenapa duduk terlalu lama tidak sehat?", "intent": "health_info"}
+{"text": "berapa porsi buah dan sayur yang dianjurkan?", "intent": "health_info"}
+{"text": "apa itu pedoman gizi seimbang?", "intent": "health_info"}
+{"text": "halo", "intent": "smalltalk"}
+{"text": "terima kasih ya", "intent": "smalltalk"}
+{"text": "selamat pagi!", "intent": "smalltalk"}
+{"text": "kamu siapa?", "intent": "smalltalk"}
+{"text": "oke siap", "intent": "smalltalk"}
+{"text": "good night", "intent": "smalltalk"}
+{"text": "wah mantap", "intent": "smalltalk"}
+{"text": "kamu bisa bantu apa aja?", "intent": "smalltalk"}
+{"text": "hehe", "intent": "smalltalk"}
+{"text": "sampai jumpa besok", "intent": "smalltalk"}
