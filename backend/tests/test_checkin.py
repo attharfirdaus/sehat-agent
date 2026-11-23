@@ -15,7 +15,20 @@ from tests.test_api_chat import events
 from tests.test_api_data import PROFILE, register
 from tests.test_graph import plan
 
-FORM = {"steps": 7000, "sleep_hours": 6.5, "water_l": 2, "smoked": False, "alcohol": False}
+VITALS = [
+    {"kind": "weight_kg", "value": 58.5},
+    {"kind": "systolic", "value": 118},
+    {"kind": "diastolic", "value": 76},
+    {"kind": "resting_hr", "value": 72},
+]
+FORM = {
+    "steps": 7000,
+    "sleep_hours": 6.5,
+    "water_l": 2,
+    "smoked": False,
+    "alcohol": False,
+    "measurements": VITALS,
+}
 
 
 @pytest.fixture
@@ -49,9 +62,11 @@ async def rows(model: Any, uid: int) -> list[Any]:
     [
         {k: v for k, v in FORM.items() if k != "smoked"},  # field wajib hilang
         {**FORM, "sleep_hours": 25},
-        {**FORM, "measurements": [{"kind": "weight_kg", "value": 6}]},  # tidak masuk akal
-        {**FORM, "measurements": [{"kind": "systolic", "value": 120}] * 2},  # dobel
-        {**FORM, "measurements": [{"kind": "gula", "value": 100}]},
+        {**FORM, "measurements": [*VITALS[1:], {"kind": "weight_kg", "value": 6}]},  # tak wajar
+        {**FORM, "measurements": [*VITALS, {"kind": "systolic", "value": 120}]},  # dobel
+        {**FORM, "measurements": [*VITALS, {"kind": "gula", "value": 100}]},
+        {**FORM, "measurements": VITALS[:3]},  # denyut istirahat wajib
+        {**FORM, "measurements": []},
     ],
 )
 def test_checkin_validation(client: TestClient, body: dict) -> None:
@@ -64,7 +79,7 @@ def test_checkin_runs_pipeline_without_extraction(
 ) -> None:
     uid = register(client)
     client.put("/api/profile", json=PROFILE)
-    body = {**FORM, "measurements": [{"kind": "weight_kg", "value": 58.5}]}
+    body = {**FORM, "measurements": [*VITALS, {"kind": "cholesterol_total", "value": 190}]}
     ev = events(client.post("/api/checkin", json=body).text)
     nodes = [d["node"] for e, d in ev if e == "node_start"]
     assert "supervisor" not in nodes and "intake" not in nodes
@@ -75,7 +90,14 @@ def test_checkin_runs_pipeline_without_extraction(
 
     [log] = run(rows, DailyLog, uid)
     assert (log.source, log.steps, float(log.sleep_hours), log.smoked) == ("form", 7000, 6.5, False)
-    assert [(m.kind, float(m.value)) for m in run(rows, Measurement, uid)] == [("weight_kg", 58.5)]
+    saved = {m.kind: float(m.value) for m in run(rows, Measurement, uid)}
+    assert saved == {
+        "weight_kg": 58.5,
+        "systolic": 118,
+        "diastolic": 76,
+        "resting_hr": 72,
+        "cholesterol_total": 190,
+    }
     history = client.get("/api/chat/history").json()["messages"]
     assert history[0]["text"].startswith("Check-in lewat form: langkah 7000")
 
@@ -94,6 +116,7 @@ def test_checkin_bp_crisis_red_flag(client: TestClient, fake: list[str], run: An
             {"kind": "weight_kg", "value": 60},
             {"kind": "systolic", "value": 185},
             {"kind": "diastolic", "value": 100},
+            {"kind": "resting_hr", "value": 80},
         ],
     }
     final = events(client.post("/api/checkin", json=body).text)[-1]

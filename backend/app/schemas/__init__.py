@@ -418,6 +418,7 @@ class ChatMessage(BaseModel):
 class ChatHistory(BaseModel):
     messages: list[ChatMessage]
     pending: dict[str, Any] | None  # payload interrupt yang menunggu jawaban
+    running: bool = False  # giliran masih diproses di backend (sambung lewat /api/chat/stream)
 
 
 class ReviewItem(BaseModel):
@@ -440,8 +441,13 @@ class CheckinMeasurement(BaseModel):
         return self
 
 
+# Diputuskan A 2026-11-23: berat, tensi, dan denyut istirahat wajib di form check-in;
+# kolesterol (butuh cek lab) dan kalori tetap opsional.
+CHECKIN_REQUIRED_MEASUREMENTS = {"weight_kg", "systolic", "diastolic", "resting_hr"}
+
+
 class CheckinIn(BaseModel):
-    """Body POST /api/checkin: 5 field wajib (log_complete, bagian 6.2) + data opsional."""
+    """Body POST /api/checkin: 5 field log wajib (log_complete, bagian 6.2) + pengukuran wajib."""
 
     # TODO(PRD): endpoint form check-in tidak ada di tabel API bagian 10; disetujui A 2026-11-21.
     steps: int = Field(ge=0, le=200_000)
@@ -457,4 +463,6 @@ class CheckinIn(BaseModel):
         kinds = [m.kind for m in self.measurements]
         if len(kinds) != len(set(kinds)):
             raise ValueError("jenis pengukuran tidak boleh dobel")
+        if missing := CHECKIN_REQUIRED_MEASUREMENTS - set(kinds):
+            raise ValueError(f"pengukuran wajib belum diisi: {sorted(missing)}")
         return self

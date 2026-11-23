@@ -3,6 +3,7 @@
 import asyncio
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, TypedDict
 
@@ -253,3 +254,61 @@ async def stream_turn(
             )
         )
         await session.commit()
+
+
+# --- giliran berjalan di latar (lepas dari koneksi HTTP) ------------------------------------
+
+
+@dataclass
+class TurnRun:
+    """Satu giliran graph yang berjalan sebagai task backend. Event dicatat supaya koneksi yang
+    putus (pindah halaman, reload) bisa menyambung ulang dan memutar ulang dari awal."""
+
+    events: list[dict] = field(default_factory=list)
+    done: bool = False
+    changed: asyncio.Condition = field(default_factory=asyncio.Condition)
+    task: asyncio.Task | None = None
+
+
+# ponytail: registry per proses; cukup untuk satu server lokal, pindah ke Redis/DB kalau
+# backend dijalankan lebih dari satu proses.
+RUNS: dict[int, TurnRun] = {}
+
+
+class TurnBusy(Exception):
+    """User masih punya giliran yang berjalan (satu thread tidak boleh dijalankan paralel)."""
+
+
+def start_turn(graph: CompiledStateGraph, graph_input: Any, user_id: int, channel: str) -> TurnRun:
+    if user_id in RUNS:
+        raise TurnBusy
+    run = RUNS[user_id] = TurnRun()
+
+    async def drive() -> None:
+        try:
+            async for event in stream_turn(graph, graph_input, user_id, channel):
+                async with run.changed:
+                    run.events.append(event)
+                    run.changed.notify_all()
+        finally:
+            RUNS.pop(user_id, None)
+            async with run.changed:
+                run.done = True
+                run.changed.notify_all()
+
+    run.task = asyncio.create_task(drive())
+    return run
+
+
+async def follow(run: TurnRun) -> AsyncIterator[dict]:
+    """Ikuti event giliran dari awal sampai selesai. Berhenti membaca tidak menghentikan task."""
+    sent = 0
+    while True:
+        async with run.changed:
+            await run.changed.wait_for(lambda n=sent: len(run.events) > n or run.done)
+            batch, done = run.events[sent:], run.done
+        sent += len(batch)
+        for event in batch:
+            yield event
+        if done and sent >= len(run.events):
+            return

@@ -27,10 +27,10 @@ make dev   # backend :8000
 make web   # frontend :3000 (terminal kedua)
 ```
 
-Buka http://localhost:3000: daftar, isi profil, lalu catat harian lewat `/checkin` (form: 5 isian
-wajib + pengukuran opsional, tanpa LLM untuk ekstraksi) atau `/chat` (bahasa natural, foto makanan,
-pertanyaan). Halaman lain: `/dashboard`, `/settings` (edit profil, hapus akun), `/clinician`
-(role clinician/admin).
+Buka http://localhost:3000: daftar, isi profil, lalu catat harian di `/chat`: ketik kalimat biasa,
+kirim foto makanan, atau buka form check-in lewat tombol formulir di kotak pesan (5 isian wajib +
+pengukuran opsional, tanpa LLM untuk ekstraksi; `/chat?form=1` langsung membukanya). Halaman lain:
+`/dashboard`, `/settings` (edit profil, hapus akun), `/clinician` (role clinician/admin).
 
 Jadikan user clinician atau admin (belum ada UI untuk ini):
 

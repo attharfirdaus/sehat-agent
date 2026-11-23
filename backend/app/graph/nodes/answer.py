@@ -1,6 +1,7 @@
 """history_qa, knowledge_info, response."""
 
 import asyncio
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from app.graph import llm, prompts, toolbox
 from app.graph.nodes.context import last_user_text
 from app.graph.state import GraphState
-from app.safety.templates import DIABETES_CAVEAT, DISCLAIMER, FRAMINGHAM_CAVEAT, REFERRAL
+from app.safety.templates import DISCLAIMER, REFERRAL
 from app.schemas import Metric, PlanContent, PlanIn, TrendReport
 from app.settings import settings
 from app.tools.data import today
@@ -133,43 +134,55 @@ def _chip(source_id: str, passages: list[dict], channel: str) -> str:
 
 
 def render_assessment(state: GraphState) -> str:
-    """Render deterministik (tanpa LLM) supaya semua angka sama persis dengan assessment."""
+    """Render deterministik (tanpa LLM) supaya semua angka sama persis dengan assessment.
+    Bahasa awam; markdown ringan (### judul, #### sub-judul, - list, **tebal**) dirender rapi
+    oleh RichText di web dan dibersihkan untuk Telegram."""
     ch, passages = state["channel"], state.get("passages", [])
     trends = state.get("trends", {})
-    out = ["Ringkasan risiko", trends.get("interpretation", "")]
-    for f in state.get("flags", []):
-        stale = " (data lama)" if f.get("stale") else ""
-        out.append(f"- {f['code']}: {f['value']} (acuan {f['threshold']}){stale}")
-    fr = state.get("framingham") or {}
-    if fr.get("applicable"):
-        out.append(
-            f"Risiko kardiovaskular 10 tahun (Framingham non-lab): {fr['risk_10y_pct']}%. "
-            + FRAMINGHAM_CAVEAT
-        )
-    elif fr:
-        out.append(f"Skor Framingham: tidak berlaku ({fr.get('reason')}).")
-    dm = state.get("diabetes") or {}
-    if dm:
-        factors = ", ".join(f["feature"] for f in dm.get("top_factors", []))
-        out.append(
-            f"Indikasi risiko diabetes: {dm['band']} ({dm['prob'] * 100:.0f}%). "
-            f"Faktor utama: {factors}. {DIABETES_CAVEAT}"
-        )
+    out = ["### Hasil penilaian hari ini", trends.get("interpretation", "")]
+    if flags := state.get("flags", []):
+        out += ["", "### Yang perlu diperhatikan", *(prompts.flag_line(f) for f in flags)]
+    risks = []
+    if fr := state.get("framingham"):
+        risks.append(f"- **Penyakit jantung:** {prompts.heart_text(fr, lead=False)}")
+    if dm := state.get("diabetes"):
+        risks.append(f"- **Diabetes:** {prompts.diabetes_text(dm, lead=False)}")
+    if risks:
+        out += ["", "### Perkiraan risiko", *risks]
 
     critique = state.get("critique") or {}
     if state.get("needs_clinician") and not critique.get("fallback"):
-        out.append("Rencana Anda sedang ditinjau tenaga medis. Kami kabari setelah selesai.")
+        out += [
+            "",
+            "### Rencana",
+            "Rencana Anda sedang ditinjau tenaga medis. Kami kabari setelah selesai.",
+        ]
     elif state.get("plan_draft"):
         plan = PlanContent.model_validate(state["plan_draft"])
-        out.append("Saran umum" if critique.get("fallback") else "Rencana 4 minggu")
+        fallback = critique.get("fallback")
+        out += [
+            "",
+            "### Saran umum untuk 4 minggu ke depan" if fallback else "### Rencana 4 minggu",
+        ]
         for w in plan.weeks:
-            targets = ", ".join(f"{t.metric} {t.target:g}" for t in w.targets)
-            out.append(f"{w.range}" + (f" (target: {targets})" if targets else ""))
+            if not fallback:
+                out += ["", f"#### {w.range}"]
+                if w.targets:
+                    targets = ", ".join(prompts.target_text(t.metric, t.target) for t in w.targets)
+                    out.append(f"Target: {targets}")
             out += [
                 f"- {a.text} " + " ".join(_chip(c, passages, ch) for c in a.citations)
                 for a in w.actions
             ]
-    return "\n".join(line for line in out if line)
+    text = "\n".join(out)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def plain_text(text: str) -> str:
+    """Markdown ringan -> teks polos (Telegram tidak memakai parse_mode Markdown, bagian 11)."""
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.M)
+    text = re.sub(r"^>\s?", "", text, flags=re.M)
+    return text.replace("**", "")
 
 
 async def response(state: GraphState) -> dict:
@@ -204,7 +217,7 @@ async def response(state: GraphState) -> dict:
         ids = dict.fromkeys(p["source_id"] for p in state["passages"])
         parts.append("Sumber: " + " ".join(_chip(i, state["passages"], ch) for i in ids))
     if intent != "smalltalk":
-        parts.append(DISCLAIMER)
+        parts.append(f"> {DISCLAIMER}")
     if ch == "telegram" and state.get("trends"):
         parts.append(f"Detail lengkap: {settings.APP_BASE_URL}/dashboard")
 
@@ -228,4 +241,6 @@ async def response(state: GraphState) -> dict:
         chart = await toolbox.build_chart_payload(TrendReport.model_validate(state["trends"]))
         chart = chart.model_dump(mode="json")
     final = "\n\n".join(parts)
+    if ch == "telegram":
+        final = plain_text(final)
     return {"final_response": final, "chart_payload": chart, "messages": [AIMessage(final)]}

@@ -21,9 +21,12 @@ import { TrendChart } from "@/components/trend-chart";
 import { api } from "@/lib/api";
 import {
   BAND_LABEL,
+  FLAG_LABEL,
   FRAMINGHAM_REASON,
   METRIC_LABEL,
+  RED_FLAG_LABEL,
   SEVERITY_CLASS,
+  featureText,
 } from "@/lib/labels";
 import type { Dashboard, MetricTrend, User } from "@/lib/types";
 
@@ -160,7 +163,7 @@ function DashboardContent({ user }: { user: User }) {
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link
-              href="/checkin"
+              href="/chat?form=1"
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-primary transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               <ClipboardPen aria-hidden className="size-4" /> Catat hari ini
@@ -220,10 +223,10 @@ function DashboardContent({ user }: { user: User }) {
           className={`${CARD} col-span-2 md:col-span-1`}
         >
           <h2 id="cvd-title" className="text-sm font-semibold">
-            Risiko kardiovaskular 10 tahun
+            Risiko jantung 10 tahun
           </h2>
           <p className="text-xs text-muted-foreground">
-            Framingham 2008 non-lab
+            Perkiraan dari usia, tensi, BMI, rokok, dan diabetes
           </p>
           {!a ? (
             <p className="mt-4 text-sm text-muted-foreground">Belum dinilai.</p>
@@ -250,7 +253,7 @@ function DashboardContent({ user }: { user: User }) {
             </>
           ) : (
             <p className="mt-4 text-sm">
-              Tidak berlaku:{" "}
+              Belum bisa dihitung, karena{" "}
               {FRAMINGHAM_REASON[a.framingham.reason ?? ""] ??
                 a.framingham.reason}
             </p>
@@ -262,10 +265,10 @@ function DashboardContent({ user }: { user: User }) {
           className={`${CARD} col-span-2 md:col-span-1`}
         >
           <h2 id="dm-title" className="text-sm font-semibold">
-            Indikasi risiko diabetes
+            Kemungkinan diabetes
           </h2>
           <p className="text-xs text-muted-foreground">
-            Model ML (CDC BRFSS 2015)
+            Perkiraan dari profil dan data harian Anda
           </p>
           {a ? (
             <>
@@ -291,7 +294,7 @@ function DashboardContent({ user }: { user: User }) {
                         className="size-3.5 text-chart-2"
                       />
                     )}
-                    {f.feature}{" "}
+                    {featureText(f)}{" "}
                     {f.direction === "increase" ? "menaikkan" : "menurunkan"}{" "}
                     risiko
                   </li>
@@ -312,13 +315,13 @@ function DashboardContent({ user }: { user: User }) {
           className={`${CARD} col-span-2 xl:col-span-4`}
         >
           <h2 id="flags-title" className="text-sm font-semibold">
-            Faktor risiko yang ditandai
+            Yang perlu diperhatikan
           </h2>
           {!a ? (
             <p className="mt-3 text-sm text-muted-foreground">Belum dinilai.</p>
           ) : a.flags.length === 0 ? (
             <p className="mt-3 text-sm">
-              Tidak ada faktor yang ditandai dari data saat ini.
+              Dari data saat ini, tidak ada hal yang perlu dikhawatirkan.
             </p>
           ) : (
             <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -327,9 +330,11 @@ function DashboardContent({ user }: { user: User }) {
                   key={f.code}
                   className={`rounded-xl border px-3 py-2 text-sm ${SEVERITY_CLASS[f.severity]}`}
                 >
-                  <span className="font-semibold">{f.code}</span>
+                  <span className="font-semibold">
+                    {FLAG_LABEL[f.code] ?? f.code}
+                  </span>
                   <span className="block text-xs">
-                    {String(f.value)} · acuan {f.threshold}
+                    {String(f.value)} · batas {f.threshold}
                     {f.stale && " · data lama"}
                   </span>
                 </li>
@@ -366,7 +371,7 @@ function DashboardContent({ user }: { user: User }) {
           <p className={`${CARD} text-sm text-muted-foreground`}>
             Belum ada data pada rentang ini.{" "}
             <Link
-              href="/checkin"
+              href="/chat?form=1"
               className="font-medium text-primary underline"
             >
               Catat hari ini
@@ -460,7 +465,9 @@ function DashboardContent({ user }: { user: User }) {
                   key={r.created_at + r.code}
                   className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2"
                 >
-                  <span className="font-semibold">{r.code}</span>
+                  <span className="font-semibold">
+                    {RED_FLAG_LABEL[r.code] ?? r.code}
+                  </span>
                   <span className="block text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString("id-ID")}
                   </span>

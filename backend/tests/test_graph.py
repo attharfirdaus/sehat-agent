@@ -24,6 +24,7 @@ from app.graph.nodes.assess import Interpretation, Queries, Rubric
 from app.graph.nodes.intake import Extracted, IntentOut
 from app.safety.templates import DISCLAIMER
 from app.schemas import (
+    DailyLogIn,
     DiabetesPrediction,
     PlanAction,
     PlanContent,
@@ -215,6 +216,37 @@ def test_intake_drops_unmentioned_smoking_alcohol(fake: dict, graph: Any, run: A
     _, interrupts, _ = run(turn, graph, msg(uid, "jalan 6rb, tidur 5 jam, air 2 liter"), uid)
     assert interrupts[0]["type"] == "clarify"
     assert interrupts[0]["missing"] == ["smoked", "alcohol"]
+
+
+def test_measurement_after_form_reuses_todays_log(fake: dict, graph: Any, run: Any) -> None:
+    """Regresi: form sudah mengisi 5 field hari ini, lalu user hanya mengirim "berat 66 kg"."""
+    fake["IntentOut"] = IntentOut(intent="log")
+    fake["Extracted"] = Extracted.model_validate(
+        {"log": {}, "measurements": [{"kind": "weight_kg", "value": 66}]}
+    )
+    pipeline(fake)
+    uid = run(make_user)
+    run(toolbox.save_daily_log, uid, DailyLogIn(log_date=today(), source="form", **FULL_LOG["log"]))
+    _, interrupts, _ = run(turn, graph, msg(uid, "berat 66 kg"), uid)
+    assert interrupts[0]["type"] == "confirm_log"  # bukan clarify
+    assert interrupts[0]["log"]["steps"] == 6000 and interrupts[0]["log"]["smoked"] is False
+    assert [m["kind"] for m in interrupts[0]["measurements"]] == ["weight_kg"]
+    nodes, _, _ = run(turn, graph, Command(resume={"action": "confirm"}), uid)
+    assert "risk_analyst" in nodes and "coach" in nodes
+
+
+def test_contradicting_summary_is_replaced(fake: dict, graph: Any, run: Any) -> None:
+    """User uji: 72 kg, 170 cm -> BMI 24,9 (berlebih menurut batas Asia)."""
+    fake["IntentOut"] = IntentOut(intent="log")
+    fake["Extracted"] = Extracted.model_validate(FULL_LOG)
+    pipeline(fake)
+    fake["Interpretation"] = Interpretation(summary="Berat badan Anda ideal dan sehat.")
+    uid = run(make_user)
+    run(turn, graph, msg(uid, CATAT), uid)
+    _, _, state = run(turn, graph, Command(resume={"action": "confirm"}), uid)
+    text = state["final_response"]
+    assert "ideal" not in text and "Yang perlu diperhatikan: berat badan berlebih" in text
+    assert "untuk orang Asia, normal sampai 22,9" in text
 
 
 def test_confirm_edit(fake: dict, graph: Any, run: Any) -> None:

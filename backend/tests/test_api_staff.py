@@ -64,7 +64,11 @@ def test_dashboard(client: TestClient, run: Any) -> None:
 
 def test_chat_history(client: TestClient, run: Any) -> None:
     uid = register(client)
-    assert client.get("/api/chat/history").json() == {"messages": [], "pending": None}
+    assert client.get("/api/chat/history").json() == {
+        "messages": [],
+        "pending": None,
+        "running": False,
+    }
     graph = client.app.state.graph  # type: ignore[attr-defined]
     run(
         graph.aupdate_state,
@@ -76,6 +80,11 @@ def test_chat_history(client: TestClient, run: Any) -> None:
         {"role": "user", "text": "halo"},
         {"role": "assistant", "text": "Hai!"},
     ]
+    run(graph.aupdate_state, thread_config(uid), {"messages": [HumanMessage("")]}, "response")
+    assert client.get("/api/chat/history").json()["messages"][-1] == {
+        "role": "user",
+        "text": "(mengirim foto makanan)",
+    }
 
 
 def test_delete_account(client: TestClient, run: Any) -> None:

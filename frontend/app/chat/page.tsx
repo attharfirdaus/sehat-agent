@@ -12,9 +12,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AppShell, BrandMark } from "@/components/app-shell";
+import {
+  type CheckinBody,
+  CheckinForm,
+  summarize,
+} from "@/components/checkin-form";
 import { InterruptCard } from "@/components/interrupt-card";
 import { RichText } from "@/components/rich-text";
 import { Button } from "@/components/ui/button";
@@ -23,7 +28,11 @@ import { ApiError, api, streamChat } from "@/lib/api";
 import { NODE_LABEL } from "@/lib/labels";
 import type { ChatEvent, InterruptPayload } from "@/lib/types";
 
-type History = { messages: Message[]; pending: InterruptPayload | null };
+type History = {
+  messages: Message[];
+  pending: InterruptPayload | null;
+  running: boolean;
+};
 
 type Message = { role: "user" | "assistant"; text: string; image?: string };
 
@@ -59,8 +68,19 @@ function ChatContent() {
   const bottom = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const streaming = useRef(false);
+  const abort = useRef<AbortController | null>(null);
 
   const [showDashboardLink, setShowDashboardLink] = useState(false);
+  // /chat?form=1 (dari dashboard) langsung membuka form check-in. Aman membaca window di sini:
+  // ChatContent baru dirender di klien setelah AppShell memuat user.
+  const [showForm, setShowForm] = useState(
+    () => new URLSearchParams(window.location.search).get("form") === "1",
+  );
+
+  // Giliran tetap berjalan di backend walau halaman ditinggal; saat kembali, sambung ulang.
+  const reattach = useEffectEvent(() => void run("/chat/stream", undefined));
+
+  useEffect(() => () => abort.current?.abort(), []); // tutup koneksi saat pindah halaman
 
   useEffect(() => {
     api("/profile").catch((e) => {
@@ -71,14 +91,17 @@ function ChatContent() {
       (h) => {
         setMessages(h.messages);
         setPending(h.pending);
+        if (h.running) reattach();
       },
       () => undefined,
     );
+    // Buang ?form=1 supaya reload tidak membuka form lagi.
+    if (window.location.search.includes("form=1")) router.replace("/chat");
   }, [router]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, status, pending]);
+  }, [messages, status, pending, showForm]);
 
   function onEvent(e: ChatEvent) {
     switch (e.event) {
@@ -126,10 +149,25 @@ function ChatContent() {
     setError(null);
     setShowDashboardLink(false);
     streaming.current = false;
+    abort.current = new AbortController();
     try {
-      await streamChat(path, body, onEvent);
+      await streamChat(path, body, onEvent, abort.current.signal);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return; // halaman ditinggal
       if (e instanceof ApiError && e.status === 401) router.replace("/login");
+      else if (
+        e instanceof ApiError &&
+        e.status === 409 &&
+        body === undefined
+      ) {
+        // Giliran sudah selesai sebelum sempat tersambung: ambil hasilnya dari riwayat.
+        const h = await api<History>("/chat/history").catch(() => null);
+        if (h) {
+          setMessages(h.messages);
+          setPending(h.pending);
+        }
+      } else if (e instanceof ApiError && e.status === 409)
+        setError("Pesan sebelumnya masih diproses. Tunggu sebentar.");
       else setError("Tidak bisa terhubung ke server. Coba lagi.");
     } finally {
       setBusy(false);
@@ -152,6 +190,13 @@ function ChatContent() {
       message: text,
       image_b64: image?.split(",")[1] ?? null,
     });
+  }
+
+  async function submitCheckin(body: CheckinBody) {
+    setShowForm(false);
+    setPending(null); // form memulai giliran baru; interrupt lama ditinggalkan
+    setMessages((m) => [...m, { role: "user", text: summarize(body) }]);
+    await run("/checkin", body);
   }
 
   async function resume(value: unknown) {
@@ -205,13 +250,17 @@ function ChatContent() {
                   </button>
                 ))}
               </div>
-              <Link
-                href="/checkin"
-                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-primary hover:bg-secondary focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                <ClipboardPen aria-hidden className="size-4" /> Lebih suka
-                isian? Buka form check-in
-              </Link>
+              {!showForm && (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="mt-4"
+                  onClick={() => setShowForm(true)}
+                >
+                  <ClipboardPen aria-hidden /> Lebih suka isian? Buka form
+                  check-in
+                </Button>
+              )}
             </div>
           )}
           <ol className="flex flex-col gap-4">
@@ -247,6 +296,15 @@ function ChatContent() {
               </li>
             ))}
           </ol>
+          {showForm && (
+            <div className="mt-4 sm:pl-11">
+              <CheckinForm
+                onSubmit={submitCheckin}
+                onClose={() => setShowForm(false)}
+                disabled={busy}
+              />
+            </div>
+          )}
           {pending && (
             <div className="mt-4 sm:pl-11">
               <InterruptCard
@@ -325,6 +383,18 @@ function ChatContent() {
               type="button"
               variant="ghost"
               size="icon-lg"
+              aria-label="Isi form check-in"
+              aria-pressed={showForm}
+              disabled={busy}
+              onClick={() => setShowForm((v) => !v)}
+              className="aria-pressed:bg-secondary aria-pressed:text-primary"
+            >
+              <ClipboardPen aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
               aria-label="Kirim foto makanan"
               disabled={busy}
               onClick={() => fileInput.current?.click()}
@@ -353,7 +423,7 @@ function ChatContent() {
                   ? "Jawab pertanyaan di atas…"
                   : "Tulis pesan…"
               }
-              className="max-h-40 min-h-11 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="max-h-40 min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 leading-6 shadow-none focus-visible:ring-0 md:py-3 md:leading-5 dark:bg-transparent"
             />
             <Button
               type="submit"

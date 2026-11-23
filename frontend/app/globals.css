@@ -131,6 +131,7 @@
     cursor: pointer;
   }
   html {
-    @apply font-sans;
+    /* Langsung ke variabel next/font: tidak bergantung pada token --font-sans hasil @theme. */
+    font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   }
 }

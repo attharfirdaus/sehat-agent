@@ -51,8 +51,67 @@ class Rubric(BaseModel):
 
 def _flags_summary(flags: list[dict]) -> str:
     if not flags:
-        return "Tidak ada faktor risiko yang ditandai dari data saat ini."
-    return "Faktor yang perlu diperhatikan: " + ", ".join(f["code"] for f in flags) + "."
+        return "Dari data saat ini, tidak ada hal yang perlu dikhawatirkan."
+    return (
+        "Yang perlu diperhatikan: "
+        + ", ".join(prompts.flag_label(f["code"]).lower() for f in flags)
+        + "."
+    )
+
+
+# Topik tiap flag dan kata yang berarti "baik-baik saja". Ringkasan LLM yang memakai kata itu untuk
+# topik yang ditandai bermasalah dianggap bertentangan dengan data dan diganti ringkasan template.
+_FLAG_TOPIC = {
+    "BP": r"tensi|tekanan darah",
+    "BMI": r"berat badan|bmi",
+    "SLEEP": r"tidur",
+    "CHOL": r"kolesterol",
+    "RHR": r"denyut|nadi",
+    "STEPS": r"langkah",
+    "PA": r"olahraga|aktivitas fisik",
+    "SMOKING": r"rokok|merokok",
+}
+_REASSURING = re.compile(r"\b(ideal|normal|sehat|aman|baik|cukup|tidak bermasalah)\b")
+# "di atas normal", "belum ideal", "batas normal" dsb. bukan klaim bahwa kondisinya baik.
+_NOT_REASSURING = re.compile(
+    r"\b(di atas|di bawah|melebihi|lebih dari|kurang dari|belum|tidak|kurang|batas|mendekati|"
+    r"menuju|agar|supaya|untuk|menjadi|kembali|lebih|usahakan|coba|perlu|harus|sebaiknya|"
+    r"pastikan|jaga|menjaga)\s+(\w+\s+)?$"
+)
+
+
+def contradicts_flags(summary: str, flags: list[dict]) -> bool:
+    """True kalau ringkasan menyebut topik yang ditandai sebagai ideal/normal/sehat."""
+    topics = {t for f in flags for t in _FLAG_TOPIC if f["code"].startswith(t)}
+    for sentence in re.split(r"[.!?;]", summary.lower()):
+        for clause in re.split(r",|\bnamun\b|\btetapi\b|\bsedangkan\b|\bdan\b", sentence):
+            if not any(re.search(_FLAG_TOPIC[t], clause) for t in topics):
+                continue
+            for m in _REASSURING.finditer(clause):
+                if not _NOT_REASSURING.search(clause[: m.start()]):
+                    return True
+    return False
+
+
+def plain_assessment(assessment: dict) -> dict:
+    """Versi berlabel bahasa awam untuk prompt LLM (tanpa kode flag atau nama fitur model)."""
+    trends = assessment["trends"].get("metrics", {})
+    return {
+        "hal_yang_perlu_diperhatikan": [
+            {
+                "label": prompts.flag_label(f["code"]),
+                "keterangan": prompts.flag_line(f).split(": ", 1)[-1],
+            }
+            for f in assessment["flags"]
+        ],
+        "jantung": prompts.heart_text(assessment["framingham"]),
+        "diabetes": prompts.diabetes_text(assessment["diabetes"]),
+        "rata_rata_7_hari": {
+            prompts.TARGET_TEXT.get(m, (m, ""))[0]: prompts.num(round(t["mean"], 1))
+            for m, t in trends.items()
+            if t.get("mean") is not None
+        },
+    }
 
 
 async def risk_analyst(state: GraphState) -> dict:
@@ -77,7 +136,7 @@ async def risk_analyst(state: GraphState) -> dict:
     interp = await llm.structured(
         Interpretation,
         prompts.RISK_ANALYST,
-        llm.compact({**assessment, "trends": _trend_digest(assessment["trends"])}),
+        llm.compact(plain_assessment(assessment)),
         reasoning=llm.THINKING,
     )
     async with SessionLocal() as session:
@@ -86,9 +145,10 @@ async def risk_analyst(state: GraphState) -> dict:
         )
         await session.commit()
     # TODO(PRD): GraphState tidak punya field interpretasi; disimpan di trends["interpretation"].
-    assessment["trends"]["interpretation"] = (
-        interp.summary if interp else _flags_summary(assessment["flags"])
-    )
+    summary = interp.summary if interp else None
+    if summary is None or contradicts_flags(summary, assessment["flags"]):
+        summary = _flags_summary(assessment["flags"])
+    assessment["trends"]["interpretation"] = summary
     return assessment
 
 

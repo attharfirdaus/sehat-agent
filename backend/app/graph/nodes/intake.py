@@ -103,8 +103,32 @@ async def supervisor(state: GraphState) -> dict:
     return {"intent": intent}
 
 
+# recent_logs (query_history) memakai nama Metric; draft memakai field DailyLogIn.
+_LOG_FIELD = {
+    "steps": "steps",
+    "sleep_hours": "sleep_hours",
+    "water_l": "water_l",
+    "calories": "calories_kcal",
+    "smoked": "smoked",
+    "alcohol": "alcohol",
+}
+
+
+def logged_today(state: GraphState) -> dict:
+    """Field yang sudah tercatat hari ini (form, chat, atau foto sebelumnya), supaya intake
+    tidak menanyakan ulang data yang sudah ada."""
+    day = today().isoformat()
+    row = next((r for r in state.get("recent_logs", []) if r["date"] == day), None)
+    values = row["values"] if row else {}
+    return {f: values[m] for m, f in _LOG_FIELD.items() if values.get(m) is not None}
+
+
 async def intake(state: GraphState) -> dict:
-    draft = state.get("draft_log") or {"log": {}, "measurements": [], "clarify_count": 0}
+    draft = state.get("draft_log") or {
+        "log": logged_today(state),
+        "measurements": [],
+        "clarify_count": 0,
+    }
     out = await llm.structured(
         Extracted,
         prompts.INTAKE,

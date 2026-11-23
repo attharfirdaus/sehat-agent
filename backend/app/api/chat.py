@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from sse_starlette import EventSourceResponse
 
 from app.api.auth import CurrentUser
-from app.graph.build import stream_turn, thread_config
+from app.graph.build import RUNS, TurnBusy, follow, start_turn, thread_config
 from app.schemas import (
     ChatHistory,
     ChatMessage,
@@ -45,6 +45,15 @@ async def _sse(events: AsyncIterator[dict]) -> AsyncIterator[dict]:
         yield {"event": e["event"], "data": json.dumps(e["data"], ensure_ascii=False)}
 
 
+def _start(request: Request, graph_input: Any, user_id: int) -> EventSourceResponse:
+    """Jalankan giliran sebagai task backend; koneksi ini hanya mengikuti event-nya."""
+    try:
+        run = start_turn(request.app.state.graph, graph_input, user_id, "web")
+    except TurnBusy:
+        raise HTTPException(409, "Pesan sebelumnya masih diproses.") from None
+    return EventSourceResponse(_sse(follow(run)))
+
+
 async def _pending(graph: CompiledStateGraph, user_id: int) -> dict | None:
     snap = await graph.aget_state(thread_config(user_id))
     return snap.interrupts[0].value if snap.interrupts else None
@@ -66,7 +75,7 @@ async def chat(body: ChatIn, user: CurrentUser, request: Request) -> EventSource
             "draft_log": None,  # jangan membawa draft form giliran lalu
             "messages": [HumanMessage(body.message)],
         }
-    return EventSourceResponse(_sse(stream_turn(graph, graph_input, user.id, "web")))
+    return _start(request, graph_input, user.id)
 
 
 @router.post("/chat/resume")
@@ -81,7 +90,16 @@ async def resume(body: ResumeIn, user: CurrentUser, request: Request) -> EventSo
         raise HTTPException(422, e.errors(include_url=False, include_context=False)) from None
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
-    return EventSourceResponse(_sse(stream_turn(graph, Command(resume=value), user.id, "web")))
+    return _start(request, Command(resume=value), user.id)
+
+
+@router.get("/chat/stream")
+async def reattach(user: CurrentUser) -> EventSourceResponse:
+    """Sambung ulang ke giliran yang masih berjalan (event diputar ulang dari awal)."""
+    run = RUNS.get(user.id)
+    if run is None:
+        raise HTTPException(409, "tidak ada proses yang berjalan")
+    return EventSourceResponse(_sse(follow(run)))
 
 
 @router.get("/chat/history")
@@ -89,14 +107,17 @@ async def history(user: CurrentUser, request: Request) -> ChatHistory:
     """Pesan di checkpoint thread user + interrupt yang menunggu (untuk reload halaman)."""
     snap = await request.app.state.graph.aget_state(thread_config(user.id))
     messages = [
-        ChatMessage(
-            role="user" if isinstance(m, HumanMessage) else "assistant", text=str(m.content)
-        )
+        # Pesan foto tanpa teks tetap ditampilkan; gambarnya tidak disimpan di checkpoint.
+        ChatMessage(role="user", text=str(m.content) or "(mengirim foto makanan)")
+        if isinstance(m, HumanMessage)
+        else ChatMessage(role="assistant", text=str(m.content))
         for m in snap.values.get("messages", [])
-        if isinstance(m, HumanMessage | AIMessage) and m.content
+        if isinstance(m, HumanMessage) or (isinstance(m, AIMessage) and m.content)
     ]
     return ChatHistory(
-        messages=messages, pending=snap.interrupts[0].value if snap.interrupts else None
+        messages=messages,
+        pending=snap.interrupts[0].value if snap.interrupts else None,
+        running=user.id in RUNS,
     )
 
 
@@ -150,6 +171,4 @@ async def checkin(body: CheckinIn, user: CurrentUser, request: Request) -> Event
         "draft_log": draft,
         "messages": [HumanMessage(text)],
     }
-    return EventSourceResponse(
-        _sse(stream_turn(request.app.state.graph, graph_input, user.id, "web"))
-    )
+    return _start(request, graph_input, user.id)

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ClipboardPen,
   HeartPulse,
   LayoutDashboard,
   LogOut,
@@ -70,7 +69,6 @@ export function AppShell({
 
   const links = [
     { href: "/chat", label: "Chat", icon: MessageCircle },
-    { href: "/checkin", label: "Catat", icon: ClipboardPen },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/settings", label: "Pengaturan", icon: Settings },
     ...(user && user.role !== "user"

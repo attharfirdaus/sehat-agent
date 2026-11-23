@@ -1,5 +1,7 @@
 """Prompt sistem per node. Data dikirim terpisah sebagai JSON ringkas."""
 
+from app.risk import guidelines as g
+
 SUPERVISOR = """Klasifikasikan pesan user ke satu intent:
 - log: user melaporkan aktivitas/gaya hidup hari ini (langkah, tidur, air, rokok, alkohol, makan,
   tekanan darah, berat badan, dll.)
@@ -20,9 +22,13 @@ INTAKE = """Ekstrak data harian dari teks user (bahasa Indonesia, informal, atau
 Isi null untuk yang tidak disebut. Jangan menebak. `sudah_terisi` adalah data sebelumnya,
 jangan diulang ke measurements."""
 
-RISK_ANALYST = """Tulis ringkasan interpretasi risiko dalam bahasa Indonesia, maksimal 120 kata,
-berdasarkan JSON assessment. Jangan menghitung ulang atau menambah angka di luar JSON.
-Jangan mendiagnosis. Sebut skor yang tidak berlaku sebagai "tidak berlaku"."""
+RISK_ANALYST = """Tulis ringkasan hasil penilaian kesehatan 2-4 kalimat (maksimal 80 kata)
+dari JSON. Jelaskan apa artinya bagi user dan satu hal terpenting yang bisa dilakukan. Pakai
+`label` dan `keterangan` apa adanya. Jangan menghitung ulang, jangan menambah angka di luar JSON,
+jangan mendiagnosis. Kalau perkiraan risiko jantung belum bisa dihitung, cukup sebut belum bisa
+dihitung dan alasannya. Setiap `label` sudah final menurut pedoman yang dipakai aplikasi (BMI
+memakai batas orang Asia): jangan menilai ulang dengan pengetahuan umum. Hal yang ada di
+`hal_yang_perlu_diperhatikan` tidak boleh disebut ideal, normal, sehat, atau aman."""
 
 KNOWLEDGE = """Buat 2-3 query pencarian pedoman kesehatan dari flags risiko dan pesan user.
 Campur bahasa Indonesia dan Inggris (korpus WHO berbahasa Inggris). Query singkat dan spesifik."""
@@ -37,7 +43,9 @@ Aturan:
   diastolic, resting_hr, weight_kg, cholesterol.
 - Tanpa diagnosis, tanpa nama obat, tanpa dosis.
 - Kalau ada `previous_plan`, lanjutkan dan sesuaikan dengan kepatuhan (adherence_pct).
-- Kalau ada `critique`, perbaiki semua issue yang disebut."""
+- Kalau ada `critique`, perbaiki semua issue yang disebut.
+- Teks aksi: satu kalimat konkret yang mudah dilakukan, bahasa awam tanpa istilah teknis atau
+  nama metrik (tulis "tidur", bukan "sleep_hours")."""
 
 CRITIC = """Periksa rencana gaya hidup terhadap dua aturan. Nilai hanya pelanggaran yang jelas.
 1. no_diagnosis_or_medication: false HANYA jika teks menyatakan diagnosis ("Anda menderita
@@ -98,3 +106,187 @@ FIELD_LABELS = {
 
 def clarify_question(missing: list[str]) -> str:
     return "Boleh dilengkapi: " + ", ".join(FIELD_LABELS[f] for f in missing) + "?"
+
+
+# --- Teks awam untuk hasil penilaian (tanpa kode, istilah model, atau bahasa Inggris) -----
+
+
+def num(v: float | int | str | None) -> str:
+    """Format angka Indonesia: 8500 -> "8.500", 6.5 -> "6,5"."""
+    if v is None or isinstance(v, str):
+        return str(v)
+    if float(v).is_integer():
+        return f"{int(v):,}".replace(",", ".")
+    return f"{v:.1f}".replace(".", ",")
+
+
+def _smoked_days(value: object) -> str:
+    days = str(value).split()[0]
+    return f"merokok {days} dari 7 hari terakhir"
+
+
+def _bmi(v: object, rule: str) -> str:
+    return f"BMI {num(v)} (perbandingan berat dan tinggi badan); {rule}"  # type: ignore[arg-type]
+
+
+def _bp(v: object) -> str:
+    return f"tensi {v} mmHg; normal di bawah {g.BP_ELEVATED_SYS}/{g.BP_STAGE1_DIA}"
+
+
+# Teks flag menyertakan batas dari app/risk/guidelines.py supaya user (dan LLM) tahu alasannya.
+FLAG_TEXT = {
+    "BP_CRISIS": (
+        "Tekanan darah sangat tinggi",
+        lambda v: (
+            f"tensi {v} mmHg; {g.BP_CRISIS_SYS}/{g.BP_CRISIS_DIA} ke atas perlu segera diperiksa"
+        ),
+    ),
+    "BP_STAGE2": ("Tekanan darah tinggi", _bp),
+    "BP_STAGE1": ("Tekanan darah sedikit tinggi", _bp),
+    "BP_ELEVATED": ("Tekanan darah di atas normal", _bp),
+    "BMI_OBESE": (
+        "Berat badan masuk kategori obesitas",
+        lambda v: _bmi(v, f"untuk orang Asia, {num(g.BMI_OBESE)} ke atas termasuk obesitas"),
+    ),
+    "BMI_OVERWEIGHT": (
+        "Berat badan berlebih",
+        lambda v: _bmi(v, f"untuk orang Asia, normal sampai {num(g.BMI_OVERWEIGHT - 0.1)}"),
+    ),
+    "BMI_UNDERWEIGHT": (
+        "Berat badan kurang",
+        lambda v: _bmi(v, f"normal mulai {num(g.BMI_UNDERWEIGHT)}"),
+    ),
+    "PA_NONE": ("Belum rutin berolahraga", lambda v: "tidak ada olahraga dalam 30 hari terakhir"),
+    "STEPS_LOW": ("Langkah harian masih sedikit", lambda v: f"rata-rata {num(v)} langkah per hari"),
+    "SLEEP_SHORT": (
+        "Tidur kurang dari 7 jam",
+        lambda v: (
+            f"rata-rata {num(v)} jam per malam, disarankan minimal {num(g.SLEEP_MIN_HOURS)} jam"
+        ),
+    ),
+    "CHOL_HIGH": (
+        "Kolesterol tinggi",
+        lambda v: f"{num(v)} mg/dL; normal di bawah {g.CHOL_BORDERLINE}",
+    ),
+    "CHOL_BORDERLINE": (
+        "Kolesterol sedikit tinggi",
+        lambda v: f"{num(v)} mg/dL; normal di bawah {g.CHOL_BORDERLINE}",
+    ),
+    "RHR_HIGH": (
+        "Denyut jantung saat istirahat tinggi",
+        lambda v: f"{num(v)} kali per menit; normal sampai {g.RESTING_HR_HIGH}",
+    ),
+    "SMOKING": ("Merokok", _smoked_days),
+}
+
+
+def flag_label(code: str) -> str:
+    return FLAG_TEXT.get(code, (code.replace("_", " ").capitalize(), str))[0]
+
+
+def flag_line(flag: dict) -> str:
+    label, detail = FLAG_TEXT.get(flag["code"], (flag_label(flag["code"]), str))
+    old = " (data lebih dari 3 bulan lalu)" if flag.get("stale") else ""
+    return f"- **{label}**: {detail(flag['value'])}{old}"
+
+
+# Fitur model diabetes (BRFSS) dalam bahasa awam, sesuai nilai user: fitur biner punya kalimat
+# untuk 1 (ya) dan 0 (tidak), supaya "membantu menurunkan" tidak terbaca "kolesterol tinggi".
+FEATURE_TEXT: dict[str, tuple[str, str]] = {
+    "HighBP": ("riwayat tekanan darah tinggi", "tidak ada riwayat tekanan darah tinggi"),
+    "HighChol": ("riwayat kolesterol tinggi", "tidak ada riwayat kolesterol tinggi"),
+    "Smoker": ("pernah merokok", "tidak pernah merokok"),
+    "PhysActivity": ("rutin berolahraga", "jarang berolahraga"),
+    "Fruits": ("makan buah setiap hari", "jarang makan buah"),
+    "Veggies": ("makan sayur setiap hari", "jarang makan sayur"),
+    "HvyAlcoholConsump": ("minum alkohol berat", "tidak minum alkohol berat"),
+    "DiffWalk": ("kesulitan berjalan", "tidak kesulitan berjalan"),
+}
+FEATURE_PLAIN = {
+    "Age": "usia Anda",
+    "BMI": "BMI Anda",
+    "GenHlth": "penilaian kesehatan Anda",
+    "Sex": "jenis kelamin",
+}
+
+
+def feature_text(factor: dict) -> str:
+    name = factor["feature"]
+    if name in FEATURE_TEXT:
+        yes, no = FEATURE_TEXT[name]
+        return yes if factor.get("value", 1) else no
+    return FEATURE_PLAIN.get(name, name)
+
+
+BAND_TEXT = {"low": "rendah", "moderate": "sedang", "high": "tinggi"}
+CATEGORY_TEXT = {"low": "rendah", "intermediate": "sedang", "high": "tinggi"}
+
+
+def heart_text(fr: dict, lead: bool = True) -> str:
+    """lead=False: tanpa kalimat pembuka, untuk ditaruh di bawah label "Penyakit jantung"."""
+    if fr.get("applicable"):
+        pct = f"{num(round(fr['risk_10y_pct'], 1))}% ({CATEGORY_TEXT.get(fr.get('category'), '-')})"
+        note = (
+            "Rumus ini berasal dari penelitian di Amerika Serikat, "
+            "jadi anggap sebagai gambaran kasar."
+        )
+        if lead:
+            lead_text = "Perkiraan risiko penyakit jantung dan pembuluh darah dalam 10 tahun"
+            return f"{lead_text}: {pct}. {note}"
+        return f"{pct.capitalize()} untuk 10 tahun ke depan. {note}"
+    reason = {
+        "age_out_of_range": "rumusnya hanya untuk usia 30 sampai 74 tahun",
+        "missing_weight": "data berat badan belum ada",
+        "missing_systolic": "data tekanan darah belum ada",
+    }.get(fr.get("reason") or "", "datanya belum cukup")
+    if lead:
+        return f"Perkiraan risiko penyakit jantung 10 tahun belum bisa dihitung, karena {reason}."
+    return f"Belum bisa dihitung, karena {reason}."
+
+
+def diabetes_text(dm: dict, lead: bool = True) -> str:
+    factors = dm.get("top_factors", [])
+    raising = [feature_text(f) for f in factors if f["direction"] == "increase"]
+    lowering = [feature_text(f) for f in factors if f["direction"] == "decrease"]
+    level = f"{BAND_TEXT.get(dm['band'], dm['band'])} (sekitar {num(round(dm['prob'] * 100))}%)."
+    parts = [f"Kemungkinan diabetes atau prediabetes: {level}" if lead else level.capitalize()]
+    if raising:
+        parts.append("Yang paling menaikkan: " + ", ".join(raising) + ".")
+    if lowering:
+        parts.append("Yang membantu menurunkan: " + ", ".join(lowering) + ".")
+    parts.append("Ini perkiraan untuk deteksi dini dari data survei, bukan diagnosis.")
+    return " ".join(parts)
+
+
+TARGET_TEXT = {
+    "steps": ("langkah", "per hari"),
+    "sleep_hours": ("tidur", "jam per malam"),
+    "water_l": ("air minum", "liter per hari"),
+    "calories": ("kalori", "kkal per hari"),
+    "smoked": ("hari merokok", ""),
+    "alcohol": ("hari minum alkohol", ""),
+    "systolic": ("tensi sistolik", "mmHg"),
+    "diastolic": ("tensi diastolik", "mmHg"),
+    "resting_hr": ("denyut istirahat", "kali per menit"),
+    "weight_kg": ("berat badan", "kg"),
+    "cholesterol": ("kolesterol", "mg/dL"),
+}
+
+
+def target_text(metric: str, target: float) -> str:
+    label, unit = TARGET_TEXT.get(metric, (metric, ""))
+    return f"{label} {num(target)} {unit}".strip()
+
+
+PLAIN_LANGUAGE = """Gaya bahasa: bahasa Indonesia sehari-hari yang sopan untuk orang awam (sapa
+"Anda"). Kalimat pendek dan jelas. Jangan memakai kode atau istilah teknis seperti nama variabel,
+"flag", "bendera", "model", "Framingham", "BRFSS", "probabilitas", "kategori info", atau istilah
+bahasa Inggris; jelaskan artinya dengan kata biasa. Bulatkan angka (contoh 1,29% menjadi sekitar
+1%)."""
+
+# Semua teks yang dibaca user memakai gaya bahasa yang sama.
+RISK_ANALYST += "\n\n" + PLAIN_LANGUAGE
+COACH += "\n\n" + PLAIN_LANGUAGE
+HISTORY_QA += "\n\n" + PLAIN_LANGUAGE
+KNOWLEDGE_INFO += "\n\n" + PLAIN_LANGUAGE
+SMALLTALK += "\n\n" + PLAIN_LANGUAGE
