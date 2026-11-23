@@ -1,11 +1,20 @@
 "use client";
 
-import { ImagePlus, SendHorizontal, X } from "lucide-react";
+import {
+  ClipboardPen,
+  HelpCircle,
+  ImagePlus,
+  LineChart,
+  Loader2,
+  Notebook,
+  SendHorizontal,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { AppShell } from "@/components/app-shell";
+import { AppShell, BrandMark } from "@/components/app-shell";
 import { InterruptCard } from "@/components/interrupt-card";
 import { RichText } from "@/components/rich-text";
 import { Button } from "@/components/ui/button";
@@ -20,7 +29,23 @@ type Message = { role: "user" | "assistant"; text: string; image?: string };
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-const EXAMPLE = "jalan 6rb langkah, tidur 6 jam, minum 2 liter, tidak merokok, tidak minum alkohol";
+const SUGGESTIONS = [
+  {
+    icon: Notebook,
+    title: "Catat aktivitas",
+    text: "jalan 6rb langkah, tidur 6 jam, minum 2 liter, tidak merokok, tidak minum alkohol",
+  },
+  {
+    icon: LineChart,
+    title: "Tanya tren saya",
+    text: "kenapa tidur saya memburuk minggu ini?",
+  },
+  {
+    icon: HelpCircle,
+    title: "Info kesehatan",
+    text: "berapa menit olahraga yang disarankan per minggu?",
+  },
+];
 
 function ChatContent() {
   const router = useRouter();
@@ -39,12 +64,16 @@ function ChatContent() {
 
   useEffect(() => {
     api("/profile").catch((e) => {
-      if (e instanceof ApiError && e.status === 404) router.replace("/onboarding");
+      if (e instanceof ApiError && e.status === 404)
+        router.replace("/onboarding");
     });
-    api<History>("/chat/history").then((h) => {
-      setMessages(h.messages);
-      setPending(h.pending);
-    }, () => undefined);
+    api<History>("/chat/history").then(
+      (h) => {
+        setMessages(h.messages);
+        setPending(h.pending);
+      },
+      () => undefined,
+    );
   }, [router]);
 
   useEffect(() => {
@@ -58,7 +87,10 @@ function ChatContent() {
         break;
       case "token":
         if (streaming.current) {
-          setMessages((m) => [...m.slice(0, -1), { role: "assistant", text: m.at(-1)!.text + e.data.text }]);
+          setMessages((m) => [
+            ...m.slice(0, -1),
+            { role: "assistant", text: m.at(-1)!.text + e.data.text },
+          ]);
         } else {
           streaming.current = true; // pesan asisten baru, token berikutnya ditempel ke sini
           setMessages((m) => [...m, { role: "assistant", text: e.data.text }]);
@@ -109,11 +141,17 @@ function ChatContent() {
     e?.preventDefault();
     const text = draft.trim();
     if ((!text && !image) || busy) return;
-    setMessages((m) => [...m, { role: "user", text, image: image ?? undefined }]);
+    setMessages((m) => [
+      ...m,
+      { role: "user", text, image: image ?? undefined },
+    ]);
     setDraft("");
     setImage(null);
     setPending(null); // jawaban clarify dikirim sebagai pesan; interrupt lain ditinggalkan
-    await run("/chat", { message: text, image_b64: image?.split(",")[1] ?? null });
+    await run("/chat", {
+      message: text,
+      image_b64: image?.split(",")[1] ?? null,
+    });
   }
 
   async function resume(value: unknown) {
@@ -134,125 +172,200 @@ function ChatContent() {
 
   return (
     <>
-
-      <main className="flex-1 overflow-y-auto px-4 py-4" aria-live="polite">
-        {messages.length === 0 && (
-          <div className="mt-10 text-center text-sm text-muted-foreground">
-            <p>Ceritakan aktivitas hari ini dengan kalimat biasa, misalnya:</p>
-            <button
-              type="button"
-              onClick={() => setDraft(EXAMPLE)}
-              className="mt-2 rounded-lg border border-border px-3 py-2 text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              &ldquo;{EXAMPLE}&rdquo;
-            </button>
-            <p className="mt-3">Atau tanyakan tren Anda: &ldquo;kenapa tidur saya memburuk?&rdquo;</p>
-            <p className="mt-3">
-              Lebih suka isian?{" "}
-              <Link href="/checkin" className="text-foreground underline">
-                Isi form check-in harian
+      <main
+        className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
+        aria-live="polite"
+      >
+        <div className="mx-auto flex w-full max-w-4xl flex-col">
+          {messages.length === 0 && (
+            <div className="mt-6 flex flex-col items-center text-center md:mt-12">
+              <BrandMark className="size-14" />
+              <h2 className="mt-4 text-2xl font-bold tracking-tight">
+                Halo! Ceritakan harimu.
+              </h2>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                Tulis dengan kalimat biasa, kirim foto makanan, atau tanyakan
+                tren kesehatan Anda.
+              </p>
+              <div className="mt-6 grid w-full gap-3 sm:grid-cols-3">
+                {SUGGESTIONS.map(({ icon: Icon, title, text }) => (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={() => setDraft(text)}
+                    className="flex min-h-11 flex-col gap-1.5 rounded-2xl bg-card p-4 text-left shadow-card ring-1 ring-border/70 transition-shadow duration-150 hover:ring-primary/40 focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <Icon aria-hidden className="size-4 text-primary" />{" "}
+                      {title}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      &ldquo;{text}&rdquo;
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Link
+                href="/checkin"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-primary hover:bg-secondary focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <ClipboardPen aria-hidden className="size-4" /> Lebih suka
+                isian? Buka form check-in
               </Link>
-            </p>
-          </div>
-        )}
-        <ol className="flex flex-col gap-3">
-          {messages.map((m, i) => (
-            <li key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-              <div
+            </div>
+          )}
+          <ol className="flex flex-col gap-4">
+            {messages.map((m, i) => (
+              <li
+                key={i}
                 className={
                   m.role === "user"
-                    ? "max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2 text-base sm:text-sm text-primary-foreground"
-                    : "max-w-[85%] rounded-2xl rounded-bl-sm bg-card px-3.5 py-2 text-base ring-1 ring-border sm:text-sm"
+                    ? "flex justify-end"
+                    : "flex items-start gap-3"
                 }
               >
-                {m.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.image} alt="Foto makanan yang dikirim" className="mb-2 max-h-48 rounded-lg" />
+                {m.role === "assistant" && (
+                  <BrandMark className="mt-0.5 size-8" />
                 )}
-                {m.text && <RichText text={m.text} />}
-              </div>
-            </li>
-          ))}
-        </ol>
-        {pending && (
-          <div className="mt-3">
-            <InterruptCard payload={pending} onResume={resume} disabled={busy} />
-          </div>
-        )}
-        {showDashboardLink && !busy && (
-          <p className="mt-2 text-sm">
-            <Link href="/dashboard" className="underline">
-              Lihat grafik tren di dashboard
-            </Link>
-          </p>
-        )}
-        {status && (
-          <p role="status" className="mt-3 motion-safe:animate-pulse text-sm text-muted-foreground">
-            {status}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div ref={bottom} />
+                <div
+                  className={
+                    m.role === "user"
+                      ? "max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-base text-primary-foreground shadow-card sm:max-w-[70%] sm:text-sm"
+                      : "max-w-[85%] rounded-2xl rounded-tl-md bg-card px-4 py-3 text-base shadow-card ring-1 ring-border/70 sm:max-w-[80%] sm:text-sm"
+                  }
+                >
+                  {m.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.image}
+                      alt="Foto makanan yang dikirim"
+                      className="mb-2 max-h-48 rounded-lg"
+                    />
+                  )}
+                  {m.text && <RichText text={m.text} />}
+                </div>
+              </li>
+            ))}
+          </ol>
+          {pending && (
+            <div className="mt-4 sm:pl-11">
+              <InterruptCard
+                payload={pending}
+                onResume={resume}
+                disabled={busy}
+              />
+            </div>
+          )}
+          {showDashboardLink && !busy && (
+            <p className="mt-3 text-sm sm:pl-11">
+              <Link
+                href="/dashboard"
+                className="font-medium text-primary underline"
+              >
+                Lihat grafik tren di dashboard
+              </Link>
+            </p>
+          )}
+          {status && (
+            <p
+              role="status"
+              className="mt-4 flex items-center gap-2 text-sm text-muted-foreground sm:pl-11"
+            >
+              <Loader2
+                aria-hidden
+                className="size-4 motion-safe:animate-spin"
+              />{" "}
+              {status}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-destructive sm:pl-11">
+              {error}
+            </p>
+          )}
+          <div ref={bottom} />
+        </div>
       </main>
 
-      <form onSubmit={send} className="border-t border-border px-4 pt-3 pb-2">
-        {image && (
-          <div className="mb-2 flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt="Pratinjau foto" className="h-14 rounded-md" />
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Hapus foto" onClick={() => setImage(null)}>
-              <X aria-hidden />
+      <form onSubmit={send} className="px-4 pt-2 pb-3 md:px-8">
+        <div className="mx-auto w-full max-w-4xl rounded-2xl bg-card p-2 shadow-card ring-1 ring-border/70 focus-within:ring-primary/50">
+          {image && (
+            <div className="mb-2 flex items-center gap-2 px-1 pt-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={image}
+                alt="Pratinjau foto"
+                className="h-14 rounded-lg"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Hapus foto"
+                onClick={() => setImage(null)}
+              >
+                <X aria-hidden />
+              </Button>
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(e) => {
+                pickImage(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              aria-label="Kirim foto makanan"
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+            >
+              <ImagePlus aria-hidden />
+            </Button>
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter saat komposisi IME mengonfirmasi teks, bukan mengirim pesan.
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing
+                ) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+              rows={1}
+              maxLength={4000}
+              aria-label="Pesan"
+              placeholder={
+                pending?.type === "clarify"
+                  ? "Jawab pertanyaan di atas…"
+                  : "Tulis pesan…"
+              }
+              className="max-h-40 min-h-11 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
+            <Button
+              type="submit"
+              size="icon-lg"
+              aria-label="Kirim"
+              disabled={busy || (!draft.trim() && !image)}
+            >
+              <SendHorizontal aria-hidden />
             </Button>
           </div>
-        )}
-        <div className="flex items-end gap-2">
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            tabIndex={-1}
-            aria-hidden
-            onChange={(e) => {
-              pickImage(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-lg"
-            aria-label="Kirim foto makanan"
-            disabled={busy}
-            onClick={() => fileInput.current?.click()}
-          >
-            <ImagePlus aria-hidden />
-          </Button>
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter saat komposisi IME mengonfirmasi teks, bukan mengirim pesan.
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            rows={1}
-            maxLength={4000}
-            aria-label="Pesan"
-            placeholder={pending?.type === "clarify" ? "Jawab pertanyaan di atas…" : "Tulis pesan…"}
-            className="max-h-40 min-h-9 flex-1 resize-none"
-          />
-          <Button type="submit" size="icon-lg" aria-label="Kirim" disabled={busy || (!draft.trim() && !image)}>
-            <SendHorizontal aria-hidden />
-          </Button>
         </div>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
+        <p className="mx-auto mt-2 max-w-4xl text-center text-xs text-muted-foreground">
           Hasil bukan diagnosis medis. Untuk keadaan darurat, hubungi 119.
         </p>
       </form>
